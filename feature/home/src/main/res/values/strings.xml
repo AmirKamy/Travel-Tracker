@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="line_view">نمایش خطی</string>
+    <string name="value_show">نمایش عددی</string>
+    <string name="products">Products</string>
+    <string name="products_detail">Product Detail</string>
+</resources>
