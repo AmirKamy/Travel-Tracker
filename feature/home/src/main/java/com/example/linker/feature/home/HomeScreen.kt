@@ -1,6 +1,11 @@
 package com.example.linker.feature.home
 
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Paint
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,14 +13,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,23 +33,40 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.linker.core.designsystem.component.rememberLocationPermissionRequester
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 @Composable
-fun MapRoute(onLogout: ()->Unit, vm: HomeViewModel = hiltViewModel()) {
+fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
+    val requestLocationPerms = rememberLocationPermissionRequester(
+        onGranted = {},
+        onDenied = {
+            Toast.makeText(context, "برای ادامه دسترسی به موقعیت لازم است", Toast.LENGTH_SHORT)
+                .show()
+        }
+    )
 
     LaunchedEffect(Unit) {
+        requestLocationPerms()
         vm.locations.collect { vm.onLocation(it) }
     }
 
@@ -61,7 +87,8 @@ fun MapRoute(onLogout: ()->Unit, vm: HomeViewModel = hiltViewModel()) {
                 context.startActivity(Intent.createChooser(intent, "دانلود/اشتراک CSV"))
             }
         },
-        onLogout = onLogout
+        onLogout = onLogout,
+        startFakeRoutes = { vm.startFakeRoute(context) }
     )
 }
 
@@ -70,16 +97,47 @@ fun MapRoute(onLogout: ()->Unit, vm: HomeViewModel = hiltViewModel()) {
 fun MapScreen(
     tracking: Boolean,
     polyline: List<GeoPoint>,
-    onStart: ()->Unit,
-    onStop: ()->Unit,
-    onExport: ()->Unit,
-    onLogout: ()->Unit,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onExport: () -> Unit,
+    onLogout: () -> Unit,
+    startFakeRoutes: () -> Unit,
 ) {
+    val context = LocalContext.current
     var mapView by remember { mutableStateOf<MapView?>(null) }
-    Scaffold(topBar = { TopAppBar(title = { Text("نقشه") }, actions = { TextButton(onClick = onLogout) { Text("خروج") } }) }) { p ->
-        Column(Modifier.fillMaxSize().padding(p)) {
+    var trackLine by remember { mutableStateOf<Polyline?>(null) }
+    var myLocationOverlay by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("نقشه") },
+                actions = { TextButton(onClick = onLogout) { Text("خروج") } })
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                ensureLocationEnabled(context) {
+                    centerOnCurrentLocation(mapView, myLocationOverlay)
+                }
+            }) {
+                Icon(
+                    painter = painterResource(id = R.drawable.my_location),
+                    contentDescription = "موقعیت من",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End
+    ) { p ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(p)
+        ) {
             AndroidView(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
                 factory = { ctx ->
                     MapView(ctx).apply {
                         setMultiTouchControls(true)
@@ -89,25 +147,115 @@ fun MapScreen(
                     }
                 },
                 update = { view ->
-                    if (polyline.isNotEmpty()) {
-                        val line = Polyline().apply {
-                            setPoints(polyline)
+                    if (trackLine == null) {
+                        trackLine = Polyline().apply {
+                            outlinePaint.apply {
+                                color = Color.parseColor("#2F80ED")
+                                strokeWidth = 12f
+                                isAntiAlias = true
+                                strokeCap = Paint.Cap.ROUND
+                                strokeJoin = Paint.Join.ROUND
+                            }
                         }
-                        view.overlays.removeAll { it is Polyline }
-                        view.overlays.add(line)
-                        view.controller.setCenter(polyline.last())
-                        view.invalidate()
+                        view.overlays.add(trackLine)
                     }
+                    if (polyline.isNotEmpty()) {
+                        trackLine?.setPoints(polyline)
+                        view.controller.animateTo(polyline.last(), 17.0, 800L)
+                    }
+                    view.invalidate()
                 }
             )
 
-
-            Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!tracking) Button(onClick = onStart, modifier = Modifier.weight(1f)) { Text("شروع") } else {
-                    Button(onClick = onStop, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors()) { Text("پایان") }
+            DisposableEffect(mapView) {
+                if (mapView != null) {
+                    val overlay =
+                        MyLocationNewOverlay(GpsMyLocationProvider(mapView!!.context), mapView)
+                    overlay.enableMyLocation()
+                    mapView!!.overlays.add(overlay)
+                    myLocationOverlay = overlay
                 }
-                if (!tracking && polyline.isNotEmpty()) OutlinedButton(onClick = onExport, modifier = Modifier.weight(1f)) { Text("دانلود خروجی") }
+                onDispose {
+                    myLocationOverlay?.disableMyLocation()
+                    mapView?.overlays?.remove(myLocationOverlay)
+                    myLocationOverlay = null
+                }
+            }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+
+                if (!tracking)
+                    Button(
+                        onClick = {
+                            ensureLocationEnabled(context) {
+                                centerOnCurrentLocation(mapView, myLocationOverlay)
+                                onStart.invoke()
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) { Text("شروع") }
+                else {
+                    Button(onClick = onStop, modifier = Modifier.weight(1f)) { Text("پایان") }
+                    Button(onClick = { startFakeRoutes() }) {
+                        Text("شروع تست")
+                    }
+                }
+                if (!tracking && polyline.isNotEmpty()) OutlinedButton(
+                    onClick = onExport,
+                    modifier = Modifier.weight(1f)
+                ) { Text("دانلود خروجی") }
             }
         }
     }
+}
+
+private fun centerOnCurrentLocation(
+    mapView: MapView?,
+    overlay: MyLocationNewOverlay?,
+    zoom: Double = 17.0
+) {
+    if (mapView == null || overlay == null) return
+    val loc = overlay.myLocation
+    if (loc != null) {
+        val p = GeoPoint(loc.latitude, loc.longitude)
+        mapView.controller.animateTo(p, zoom, 800L)
+    } else {
+        overlay.runOnFirstFix {
+            val last = overlay.myLocation ?: return@runOnFirstFix
+            val p = GeoPoint(last.latitude, last.longitude)
+            mapView.post {
+                mapView.controller.animateTo(p, zoom, 800L)
+            }
+        }
+        overlay.enableMyLocation()
+    }
+}
+
+
+fun ensureLocationEnabled(context: Context, onReady: () -> Unit) {
+    val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L).build()
+    val settingsRequest = LocationSettingsRequest.Builder()
+        .addLocationRequest(request)
+        .setAlwaysShow(true)
+        .build()
+
+    val client = LocationServices.getSettingsClient(context)
+    client.checkLocationSettings(settingsRequest)
+        .addOnSuccessListener { onReady() }
+        .addOnFailureListener { ex ->
+            if (ex is ResolvableApiException) {
+                try {
+                    ex.startResolutionForResult((context as Activity), 1001)
+                } catch (_: Exception) { /* no-op */
+                }
+            } else {
+                Toast.makeText(context, "امکان دسترسی به موقعیت شما نیست", Toast.LENGTH_SHORT)
+                    .show()
+            }
+        }
 }

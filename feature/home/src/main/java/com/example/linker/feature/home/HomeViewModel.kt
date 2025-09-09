@@ -22,8 +22,6 @@ import org.osmdroid.util.GeoPoint
 import java.io.File
 import java.io.FileWriter
 import javax.inject.Inject
-import com.example.linker.feature.home.FusedLocationClient
-import com.example.linker.feature.home.LocationClient
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -39,7 +37,6 @@ class HomeViewModel @Inject constructor(
     var polyline = mutableStateListOf<GeoPoint>()
 
     val locations: Flow<Location> = location.locationUpdates()
-
 
     fun onStart() {
         viewModelScope.launch {
@@ -79,5 +76,20 @@ class HomeViewModel @Inject constructor(
             pts.forEach { w.appendLine("${it.lat},${it.lon},${it.timestamp}") }
         }
         return FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", file)
+    }
+
+    // for test
+    fun startFakeRoute(context: Context) {
+        val route = mutableListOf<Pair<Double, Double>>()
+        val baseLat = 35.700000
+        val baseLon = 51.400000
+
+        for (i in 0 until 25) {
+            val lat = baseLat + i * 0.0002
+            val lon = baseLon + i * 0.0002
+            route.add(lat to lon)
+        }
+
+        context.pushFakeRoute(route, intervalMs = 800)
     }
 }
