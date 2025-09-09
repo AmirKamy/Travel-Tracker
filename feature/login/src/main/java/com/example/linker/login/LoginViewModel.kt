@@ -15,11 +15,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class LoginField { Username, Password }
+
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val login: LoginUseCase,
     private val currentUser: CurrentUserUseCase,
 ) : ViewModel() {
+
     var uiState by mutableStateOf(LoginUiState())
         private set
 
@@ -27,26 +30,48 @@ class LoginViewModel @Inject constructor(
         currentUser().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun onUsernameChanged(value: String) {
-        uiState = uiState.copy(username = value)
+        uiState = uiState.copy(username = value, usernameTouched = true)
+            .validated(changed = LoginField.Username)
     }
 
     fun onPasswordChanged(value: String) {
-        uiState = uiState.copy(password = value)
+        uiState = uiState.copy(password = value, passwordTouched = true)
+            .validated(changed = LoginField.Password)
     }
 
     fun onLogin() {
+        // همه فیلدها لمس‌شده فرض شوند و ولیدیشن کامل انجام شود
+        val s0 = uiState.copy(usernameTouched = true, passwordTouched = true)
+        val s = s0.validated(all = true)
+        if (!s.isValid) { uiState = s; return }
+
         viewModelScope.launch {
-            uiState = uiState.copy(loading = true, error = null)
-            val r = login(uiState.username, uiState.password)
-            uiState = uiState.copy(loading = false, error = r.exceptionOrNull()?.message)
+            uiState = s.copy(loading = true, error = null)
+            val r = login(s.username.trim(), s.password)
+            uiState = if (r.isSuccess) s.copy(loading = false)
+            else s.copy(loading = false, error = r.exceptionOrNull()?.message)
         }
     }
+
+    // ولیدیشن مرحله‌ای
+    private fun LoginUiState.validated(
+        changed: LoginField? = null,
+        all: Boolean = false
+    ): LoginUiState {
+        // برای هم‌خوانی با رجیستر (در صورت وجود محدودیت‌های سمت سرور)
+        val userRegex = Regex("^[a-zA-Z0-9_.-]{4,}$")
+
+        fun need(f: LoginField, touched: Boolean) = all || touched || changed == f
+
+        val usernameErrCalc =
+            if (username.trim().matches(userRegex)) null else "نام کاربری ≥۴، فقط حروف/عدد/._-"
+
+        val passwordErrCalc =
+            if (password.isNotBlank()) null else "رمز عبور را وارد کنید"
+
+        return copy(
+            usernameError = if (need(LoginField.Username, usernameTouched)) usernameErrCalc else usernameError,
+            passwordError = if (need(LoginField.Password, passwordTouched)) passwordErrCalc else passwordError,
+        )
+    }
 }
-
-
-data class LoginUiState(
-    val username: String = "",
-    val password: String = "",
-    val loading: Boolean = false,
-    val error: String? = null,
-)
