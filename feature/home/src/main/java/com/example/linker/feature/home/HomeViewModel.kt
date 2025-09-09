@@ -21,6 +21,8 @@ import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import java.io.File
 import java.io.FileWriter
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -80,11 +82,19 @@ class HomeViewModel @Inject constructor(
     suspend fun exportCsv(ctx: Context): Uri {
         val trackId = currentTrackId ?: error("No track")
         val pts = getPoints(trackId)
+
         val file = File(ctx.cacheDir, "track_${trackId}.csv")
+
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
         FileWriter(file).use { w ->
-            w.appendLine("lat,lon,timestamp")
-            pts.forEach { w.appendLine("${it.lat},${it.lon},${it.timestamp}") }
+            w.appendLine("lat,lon,time")
+            pts.forEach { point ->
+                val dateStr = fmt.format(Date(point.timestamp))
+                w.appendLine("${point.lat},${point.lon},$dateStr")
+            }
         }
+
         return FileProvider.getUriForFile(ctx, ctx.packageName + ".provider", file)
     }
 

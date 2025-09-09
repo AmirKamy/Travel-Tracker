@@ -1,9 +1,11 @@
 package com.example.core.data.repository
 
+import at.favre.lib.crypto.bcrypt.BCrypt
 import com.example.core.data.SessionManager
 import com.example.core.data.datasource.AuthLocalDataSource
-import com.example.linker.core.database.model.toEntity
+import com.example.linker.core.database.model.UserEntity
 import com.example.linker.core.database.model.toModel
+import com.example.linker.core.model.RegisterParams
 import com.example.linker.core.model.User
 import com.linker.core.domain.irepository.AuthRepository
 import kotlinx.coroutines.flow.Flow
@@ -14,20 +16,24 @@ class AuthRepositoryImpl @Inject constructor(
     private val ds: AuthLocalDataSource,
     private val session: SessionManager,
 ) : AuthRepository {
-    override suspend fun register(user: User): Result<Unit> = runCatching {
-        val existing = ds.findByUsername(user.username)
-        require(existing == null) { "Username exists" }
-        ds.insert(user.toEntity())
+    override suspend fun register(params: RegisterParams): Result<Unit> = runCatching {
+        val hash = BCrypt.withDefaults().hashToString(12, params.passwordRaw.toCharArray())
+        val entity = UserEntity(
+            firstName   = params.firstName,
+            lastName    = params.lastName,
+            age         = params.age,
+            birthDate   = params.birthDate,
+            username    = params.username.lowercase(),
+            passwordHash= hash
+        )
+        ds.insert(entity)
     }
 
-
-    override suspend fun login(username: String, password: String): Result<User> = runCatching {
-        val e = ds.findByUsername(username) ?: error("Not found")
-        val ok = e.passwordHash == hash(password)
-        require(ok) { "Wrong password" }
-        val u = e.toModel()
-        session.setUser(u)
-        u
+    override suspend fun login(username: String, passwordRaw: String): Result<User> = runCatching {
+        val e = ds.findByUsername(username.lowercase()) ?: error("کاربر یافت نشد")
+        val ok = BCrypt.verifyer().verify(passwordRaw.toCharArray(), e.passwordHash).verified
+        if (!ok) error("نام کاربری یا رمز نادرست است")
+        e.toModel()
     }
 
 
