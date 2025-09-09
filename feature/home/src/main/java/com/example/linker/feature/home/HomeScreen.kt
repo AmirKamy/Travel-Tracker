@@ -6,19 +6,16 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Paint
 import android.widget.Toast
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -38,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.linker.core.designsystem.component.MapBottomBar
 import com.example.linker.core.designsystem.component.rememberLocationPermissionRequester
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.LocationRequest
@@ -115,7 +114,7 @@ fun MapScreen(
                 actions = { TextButton(onClick = onLogout) { Text("خروج") } })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
+            FloatingActionButton(modifier = Modifier.padding(bottom = 140.dp),onClick = {
                 ensureLocationEnabled(context) {
                     centerOnCurrentLocation(mapView, myLocationOverlay)
                 }
@@ -182,34 +181,19 @@ fun MapScreen(
                 }
             }
 
-            Row(
-                Modifier
+            MapBottomBar(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
                     .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                if (!tracking)
-                    Button(
-                        onClick = {
-                            ensureLocationEnabled(context) {
-                                centerOnCurrentLocation(mapView, myLocationOverlay)
-                                onStart.invoke()
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("شروع") }
-                else {
-                    Button(onClick = onStop, modifier = Modifier.weight(1f)) { Text("پایان") }
-                    Button(onClick = { startFakeRoutes() }) {
-                        Text("شروع تست")
-                    }
-                }
-                if (!tracking && polyline.isNotEmpty()) OutlinedButton(
-                    onClick = onExport,
-                    modifier = Modifier.weight(1f)
-                ) { Text("دانلود خروجی") }
-            }
+                    .imePadding(),
+                tracking = tracking,
+                canExport = !tracking && polyline.isNotEmpty(),
+                onStart = onStart,
+                onStop = onStop,
+                onExport = onExport,
+                polyline = polyline,
+                startFakeRoutes = startFakeRoutes
+            )
         }
     }
 }

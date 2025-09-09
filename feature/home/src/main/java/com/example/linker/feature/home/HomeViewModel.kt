@@ -43,6 +43,16 @@ class HomeViewModel @Inject constructor(
             val id = startTrack().getOrThrow()
             currentTrackId = id
             tracking = true
+
+            addCurrentPointOnce()
+        }
+    }
+
+    fun addCurrentPointOnce() {
+        viewModelScope.launch {
+            val loc = location.currentOnce() ?: return@launch
+            polyline.add(GeoPoint(loc.latitude, loc.longitude))
+            currentTrackId?.let { addPoint(it, loc.latitude, loc.longitude) }
         }
     }
 

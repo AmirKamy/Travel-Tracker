@@ -6,6 +6,10 @@ plugins {
 
 android {
     namespace = "com.example.linker.feature.home"
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

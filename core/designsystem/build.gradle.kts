@@ -19,6 +19,8 @@ dependencies {
     api(libs.androidx.compose.material3)
     api(libs.androidx.compose.ui.tooling)
     api(libs.androidx.navigation.compose)
+    // OSMDroid
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
 
 //    implementation(libs.coil)
