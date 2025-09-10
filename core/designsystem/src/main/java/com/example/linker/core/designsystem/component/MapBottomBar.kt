@@ -35,7 +35,7 @@ fun MapBottomBar(
     onStop: () -> Unit,
     onExport: () -> Unit,
     polyline: List<GeoPoint>,
-    startFakeRoutes: () -> Unit
+    startFakeRoutes: (() -> Unit)?
 ) {
 
     Surface(
@@ -83,14 +83,14 @@ fun MapBottomBar(
                     ) { Text("پایان") }
 
                     // با این دکمه تست کنید نقاط فیک را
-                    // احتیاج به اضافه کردن دسترسی در مانیفست است
-//                    FilledTonalButton(
-//                        onClick = startFakeRoutes,
-//                        modifier = Modifier.weight(1f),
-//                        contentPadding = PaddingValues(vertical = 14.dp)
-//                    ) { Text("نقاط فیک در دیباگ مود") }
+                    if (startFakeRoutes != null)
+                        FilledTonalButton(
+                            onClick = startFakeRoutes,
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 14.dp)
+                        ) { Text("نقاط فیک در دیباگ مود") }
                 }
-                if (!tracking  && polyline.isNotEmpty())
+                if (!tracking && polyline.isNotEmpty())
                     Button(
                         onClick = onExport,
                         enabled = canExport,

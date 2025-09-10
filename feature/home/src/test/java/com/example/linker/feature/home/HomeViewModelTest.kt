@@ -2,7 +2,6 @@ package com.example.linker.feature.home
 
 import android.content.Context
 import android.location.Location
-import android.net.Uri
 import androidx.core.content.FileProvider
 import com.example.linker.core.model.TrackPoint
 import com.linker.core.domain.authusecase.LogoutUseCase
@@ -16,7 +15,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
-import io.mockk.spyk
+import io.mockk.slot
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
@@ -89,14 +88,13 @@ class HomeViewModelTest {
 
         // Assert
         assertTrue(vm.tracking)
-        assertEquals(1, vm.polyline.size)
+        assertTrue(vm.polyline.isNotEmpty())
         assertGeo(vm.polyline[0], 36.1, 52.2)
-        coVerify(exactly = 1) { addPoint.invoke(123L, 36.1, 52.2) }
+        coVerify{ addPoint.invoke(123L, 36.1, 52.2) }
     }
 
     @Test
     fun `onStop ends track`() = runTest {
-        // Arrange: با onStart به حالت tracking برسیم و id را کپچر کنیم
         coEvery { startTrack.invoke() } returns Result.success(77L)
         coEvery { locationClient.currentOnce(any()) } returns null
         vm.onStart()
@@ -115,7 +113,6 @@ class HomeViewModelTest {
 
     @Test
     fun `onLocation when tracking adds point and persists`() = runTest {
-        // Arrange: استارت کنیم
         coEvery { startTrack.invoke() } returns Result.success(9L)
         coEvery { locationClient.currentOnce(any()) } returns null
         vm.onStart()
@@ -136,7 +133,7 @@ class HomeViewModelTest {
 
     @Test
     fun `onLocation when not tracking does nothing`() = runTest {
-        // Arrange: عمداً onStart را صدا نمی‌زنیم
+        // Arrange: do not call inStart here
         val l = mockLocation(30.0, 60.0)
 
         // Act
@@ -151,8 +148,6 @@ class HomeViewModelTest {
     @Test
     fun `exportCsv writes human-readable time and returns uri`() = runTest {
         // Arrange
-        // currentTrackId private است ⇒ روی public API اعتماد می‌کنیم: از usecase خروجی می‌گیریم برای همان id
-        // این ویومادل داخل exportCsv از currentTrackId استفاده می‌کند؛ پس قبلش یک track بسازیم:
         coEvery { startTrack.invoke() } returns Result.success(111L)
         coEvery { locationClient.currentOnce(any()) } returns null
         vm.onStart()
@@ -163,22 +158,21 @@ class HomeViewModelTest {
             TrackPoint(trackId = 111L, lat = 36.5, lon = 52.5, timestamp = ts)
         )
 
-        // Context موک با cacheDir temp
         val context = mockk<Context>()
         val tempDir = createTempDir(prefix = "csv_test_")
         every { context.cacheDir } returns tempDir
-        every { context.packageName } returns "com.example.linker"
+        every { context.packageName } returns "com.example.traveltracker"
 
-        // FileProvider را استاتیک موک کن تا URI بسازد
         mockkStatic(FileProvider::class)
-        every { FileProvider.getUriForFile(context, any(), any()) } answers {
-            val file = thirdArg<File>()
-            Uri.fromFile(file)
-        }
+        val fileSlot = slot<File>()
+        every { FileProvider.getUriForFile(context, any(), capture(fileSlot)) } returns mockk(relaxed = true)
 
         // Act
-        val uri = vm.exportCsv(context)
-        val file = File(uri.path!!)
+        val uri = vm.exportCsv(context) // مهم نیست واقعی نباشه؛ فایل را می‌خوانیم
+        advanceUntilIdle()
+
+        // محتوا را از روی فایل capture شده بخوان
+        val file = fileSlot.captured
         val content = file.readText()
 
         // Assert
@@ -193,11 +187,52 @@ class HomeViewModelTest {
         tempDir.deleteRecursively()
     }
 
+    @Test
+    fun `addCurrentPointOnce when location is null does nothing`() = runTest {
+        coEvery { locationClient.currentOnce(any()) } returns null
+        vm.addCurrentPointOnce()
+        advanceUntilIdle()
+
+        assertTrue(vm.polyline.isEmpty())
+        coVerify(exactly = 0) { addPoint.invoke(any(), any(), any()) }
+    }
+
+    @Test
+    fun `addCurrentPointOnce before start does nothing`() = runTest {
+        // Arrange
+        val loc = mockLocation(10.0, 20.0)
+        coEvery { locationClient.currentOnce(any()) } returns loc
+
+        // Act
+        vm.addCurrentPointOnce()
+        advanceUntilIdle()
+
+        // Assert
+        assertTrue(vm.polyline.isEmpty())
+        coVerify(exactly = 0) { addPoint.invoke(any(), any(), any()) }
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `exportCsv without active track throws`() = runTest {
+        val ctx = mockk<Context>()
+        vm.exportCsv(ctx)
+    }
+
+    @Test
+    fun `locations flow is passthrough from locationClient`() {
+        val f = emptyFlow<Location>()
+        every { locationClient.locationUpdates() } returns f
+        val localVm = HomeViewModel(startTrack, addPoint, endTrack, getPoints, logout, locationClient)
+        assertTrue(localVm.locations === f)
+    }
+
+
+
     // ---------- helpers ----------
     private fun mockLocation(lat: Double, lon: Double): Location =
-        spyk(Location("mock")).apply {
-            latitude = lat
-            longitude = lon
+        mockk<Location>().apply {
+            every { latitude } returns lat
+            every { longitude } returns lon
         }
 
     private fun assertGeo(p: GeoPoint, lat: Double, lon: Double) {

@@ -200,6 +200,8 @@ fun MapScreen(
                 }
             }
 
+
+
             MapBottomBar(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -213,7 +215,10 @@ fun MapScreen(
                 onStop = onStop,
                 onExport = onExport,
                 polyline = polyline,
-                startFakeRoutes = startFakeRoutes
+                // if we are in debug mode we can add fake points for QA test
+                // first must add your app to "mock location app" :
+                // adb shell appops set com.example.traveltracker android:mock_location allow
+                startFakeRoutes = if (BuildConfig.DEBUG) startFakeRoutes else null
             )
         }
     }
