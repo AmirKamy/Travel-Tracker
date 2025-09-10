@@ -43,6 +43,7 @@ class HomeViewModel @Inject constructor(
     fun onStart() {
         viewModelScope.launch {
             val id = startTrack().getOrThrow()
+            polyline.clear()
             currentTrackId = id
             tracking = true
 
@@ -102,17 +103,18 @@ class HomeViewModel @Inject constructor(
     }
 
     // for test
-    fun startFakeRoute(context: Context) {
-        val route = mutableListOf<Pair<Double, Double>>()
-        val baseLat = 35.700000
-        val baseLon = 51.400000
+    fun startFakeRouteFromFirstPoint(context: Context,
+                                     count: Int = 25,
+                                     step: Double = 0.0002,
+                                     intervalMs: Long = 800L) {
+        if (!tracking) return
 
-        for (i in 0 until 25) {
-            val lat = baseLat + i * 0.0002
-            val lon = baseLon + i * 0.0002
-            route.add(lat to lon)
+        val base = polyline.lastOrNull() ?: return
+
+        val route = List(count) { i ->
+            (base.latitude + i * step) to (base.longitude + i * step)
         }
 
-        context.pushFakeRoute(route, intervalMs = 800)
+        context.pushFakeRoute(points = route, intervalMs = intervalMs)
     }
 }

@@ -47,9 +47,9 @@ import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
+private const val TAG = "MapOverlay"
 @Composable
 fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val context = LocalContext.current
@@ -78,7 +78,7 @@ fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
             }
         },
         onLogout = onLogout,
-        startFakeRoutes = { vm.startFakeRoute(context) }
+        startFakeRoutes = { vm.startFakeRouteFromFirstPoint(context) }
     )
 }
 
@@ -109,6 +109,7 @@ fun MapScreen(
 
     var hasLocationPerm by remember { mutableStateOf(hasLocationPermission(context)) }
     var afterGrant by remember { mutableStateOf<(() -> Unit)?>(null) }
+
 
     val requestLocationPerms = rememberLocationPermissionRequester(
         onGranted = {
@@ -187,20 +188,21 @@ fun MapScreen(
 
             DisposableEffect(mapView) {
                 if (mapView != null) {
-                    val overlay =
-                        MyLocationNewOverlay(GpsMyLocationProvider(mapView!!.context), mapView)
-                    overlay.enableMyLocation()
+                    val provider = FusedMyLocationProvider(mapView!!.context)
+                    val overlay = MyLocationNewOverlay(provider, mapView).apply {
+                        enableMyLocation()
+                        enableFollowLocation()
+                    }
                     mapView!!.overlays.add(overlay)
                     myLocationOverlay = overlay
                 }
+
                 onDispose {
                     myLocationOverlay?.disableMyLocation()
                     mapView?.overlays?.remove(myLocationOverlay)
                     myLocationOverlay = null
                 }
             }
-
-
 
             MapBottomBar(
                 modifier = Modifier
