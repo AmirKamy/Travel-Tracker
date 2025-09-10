@@ -56,16 +56,7 @@ fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    val requestLocationPerms = rememberLocationPermissionRequester(
-        onGranted = {},
-        onDenied = {
-            Toast.makeText(context, "برای ادامه دسترسی به موقعیت لازم است", Toast.LENGTH_SHORT)
-                .show()
-        }
-    )
-
     LaunchedEffect(Unit) {
-        requestLocationPerms()
         vm.locations.collect { vm.onLocation(it) }
     }
 
@@ -73,7 +64,7 @@ fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     MapScreen(
         tracking = vm.tracking,
         polyline = vm.polyline,
-        onStart = vm::onStart,
+        onStart = {vm.onStart()},
         onStop = vm::onStop,
         onExport = {
             scope.launch {
@@ -91,6 +82,15 @@ fun MapRoute(onLogout: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     )
 }
 
+private fun hasLocationPermission(context: Context): Boolean {
+    val fine = androidx.core.content.ContextCompat.checkSelfPermission(
+        context, android.Manifest.permission.ACCESS_FINE_LOCATION
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val coarse = androidx.core.content.ContextCompat.checkSelfPermission(
+        context, android.Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    return fine || coarse
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -107,6 +107,23 @@ fun MapScreen(
     var trackLine by remember { mutableStateOf<Polyline?>(null) }
     var myLocationOverlay by remember { mutableStateOf<MyLocationNewOverlay?>(null) }
 
+    var hasLocationPerm by remember { mutableStateOf(hasLocationPermission(context)) }
+    var afterGrant by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val requestLocationPerms = rememberLocationPermissionRequester(
+        onGranted = {
+            hasLocationPerm = true
+            afterGrant?.invoke()
+            afterGrant = null
+        },
+        onDenied = {
+            Toast.makeText(context, "برای ادامه دسترسی به موقعیت لازم است", Toast.LENGTH_SHORT).show()
+        }
+    )
+    fun ensurePermThen(action: () -> Unit) {
+        if (hasLocationPerm) action() else { afterGrant = action; requestLocationPerms() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -115,8 +132,10 @@ fun MapScreen(
         },
         floatingActionButton = {
             FloatingActionButton(modifier = Modifier.padding(bottom = 140.dp),onClick = {
-                ensureLocationEnabled(context) {
-                    centerOnCurrentLocation(mapView, myLocationOverlay)
+                ensurePermThen {
+                    ensureLocationEnabled(context) {
+                        centerOnCurrentLocation(mapView, myLocationOverlay)
+                    }
                 }
             }) {
                 Icon(
@@ -188,7 +207,9 @@ fun MapScreen(
                     .imePadding(),
                 tracking = tracking,
                 canExport = !tracking && polyline.isNotEmpty(),
-                onStart = onStart,
+                onStart = {
+                    ensurePermThen { onStart.invoke() }
+                },
                 onStop = onStop,
                 onExport = onExport,
                 polyline = polyline,

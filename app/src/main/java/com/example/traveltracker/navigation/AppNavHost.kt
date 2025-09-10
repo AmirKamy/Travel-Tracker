@@ -24,52 +24,60 @@ fun AppNavHost(navController: NavHostController) {
             LoginRoute(
                 onLoggedIn = {
                     navController.navigate(HomeDestination.HomeScreen.route) {
-                        popUpTo(
-                            WelcomeDestination.WelcomeScreen.route
-                        ) { inclusive = true }
+                        popUpTo(WelcomeDestination.WelcomeScreen.route) { inclusive = true }
+                        launchSingleTop = true
                     }
                 },
                 onNavigateToRegister = {
                     navController.navigate(RegisterDestination.RegisterScreen.route) {
-                        {
-                            popUpTo(
-                                WelcomeDestination.WelcomeScreen.route
-                            ) { inclusive = true }
-                        }
+                        popUpTo(LoginDestination.LoginScreen.route) { inclusive = true }
+                        launchSingleTop = true
                     }
-                })
+                }
+            )
         }
+
         composable(RegisterDestination.RegisterScreen.route) {
             RegisterRoute(
                 onRegistered = {
                     navController.navigate(LoginDestination.LoginScreen.route) {
-                        popUpTo(
-                            WelcomeDestination.WelcomeScreen.route
-                        )
+                        popUpTo(WelcomeDestination.WelcomeScreen.route) { inclusive = false }
+                        launchSingleTop = true
                     }
                 },
                 onNavigateToLogin = {
                     navController.navigate(LoginDestination.LoginScreen.route) {
-                        {
-                            popUpTo(
-                                WelcomeDestination.WelcomeScreen.route
-                            ) { inclusive = true }
-                        }
+                        popUpTo(RegisterDestination.RegisterScreen.route) { inclusive = true }
+                        launchSingleTop = true
                     }
-                })
+                }
+            )
         }
 
         composable(WelcomeDestination.WelcomeScreen.route) {
             WelcomeScreen(
-                onLogin = { navController.navigate(LoginDestination.LoginScreen.route) },
-                onRegister = { navController.navigate(RegisterDestination.RegisterScreen.route) }
+                onLogin = {
+                    navController.navigate(LoginDestination.LoginScreen.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onRegister = {
+                    navController.navigate(RegisterDestination.RegisterScreen.route) {
+                        launchSingleTop = true
+                    }
+                }
             )
         }
 
         composable(HomeDestination.HomeScreen.route) {
-            MapRoute(onLogout = {
-                navController.navigate(WelcomeDestination.WelcomeScreen.route) { popUpTo(0) }
-            })
+            MapRoute(
+                onLogout = {
+                    navController.navigate(WelcomeDestination.WelcomeScreen.route) {
+                        popUpTo(0)
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
     }
 }

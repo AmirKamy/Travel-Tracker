@@ -39,8 +39,7 @@ class LoginViewModel @Inject constructor(
             .validated(changed = LoginField.Password)
     }
 
-    fun onLogin() {
-        // همه فیلدها لمس‌شده فرض شوند و ولیدیشن کامل انجام شود
+    fun onLogin(onSuccess: () -> Unit) {
         val s0 = uiState.copy(usernameTouched = true, passwordTouched = true)
         val s = s0.validated(all = true)
         if (!s.isValid) { uiState = s; return }
@@ -50,15 +49,14 @@ class LoginViewModel @Inject constructor(
             val r = login(s.username.trim(), s.password)
             uiState = if (r.isSuccess) s.copy(loading = false)
             else s.copy(loading = false, error = r.exceptionOrNull()?.message)
+            if (r.isSuccess) onSuccess()
         }
     }
 
-    // ولیدیشن مرحله‌ای
     private fun LoginUiState.validated(
         changed: LoginField? = null,
         all: Boolean = false
     ): LoginUiState {
-        // برای هم‌خوانی با رجیستر (در صورت وجود محدودیت‌های سمت سرور)
         val userRegex = Regex("^[a-zA-Z0-9_.-]{4,}$")
 
         fun need(f: LoginField, touched: Boolean) = all || touched || changed == f

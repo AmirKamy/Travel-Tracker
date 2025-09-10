@@ -26,9 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -46,15 +43,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 
 @Composable
-fun LoginRoute(onNavigateToRegister: () -> Unit, onLoggedIn: () -> Unit, vm: LoginViewModel = hiltViewModel()) {
-    val user by vm.loggedIn.collectAsState()
-    LaunchedEffect(user) { if (user != null) onLoggedIn() }
+fun LoginRoute(
+    onNavigateToRegister: () -> Unit,
+    onLoggedIn: () -> Unit,
+    vm: LoginViewModel = hiltViewModel()
+) {
     LoginScreen(
         onNavigateToRegister = onNavigateToRegister,
         state = vm.uiState,
         onUsername = vm::onUsernameChanged,
         onPassword = vm::onPasswordChanged,
-        onLogin = vm::onLogin
+        onLogin = { vm.onLogin(onLoggedIn) }
     )
 }
 
@@ -107,9 +106,8 @@ fun LoginScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // هِرو: لوگو + تیتر
+
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // اگر آیکون اختصاصی داری جایگزینش کن با Image(painterResource(...))
                         Icon(
                             imageVector = Icons.Outlined.Link,
                             contentDescription = "لوگوی اپ",

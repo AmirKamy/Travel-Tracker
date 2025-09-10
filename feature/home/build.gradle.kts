@@ -26,4 +26,12 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
 // CSV (ساده)
     implementation("com.opencsv:opencsv:5.9")
+
+    //test
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+
+    // فقط اگر تست exportCsv نیاز به FileProvider داشته باشه:
+    testImplementation("org.robolectric:robolectric:4.12.1")
 }

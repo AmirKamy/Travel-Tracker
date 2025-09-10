@@ -21,7 +21,6 @@ class RegisterViewModel @Inject constructor(
     var uiState by mutableStateOf(RegisterUiState())
         private set
 
-    // هندلرهای تغییر (فقط همان فیلد را ولیدیت می‌کنیم و فلگ touched را می‌زنیم)
     fun onFirstNameChanged(v: String) {
         uiState = uiState.copy(firstName = v, firstNameTouched = true).validated(changed = Field.FirstName)
     }
@@ -41,7 +40,6 @@ class RegisterViewModel @Inject constructor(
         uiState = uiState.copy(password = v, passwordTouched = true).validated(changed = Field.Password)
     }
 
-    // ثبت: همه را touched می‌کنیم و ولیدیشن کامل می‌گیریم
     fun onRegister(onDone: () -> Unit) {
         val s0 = uiState.copy(
             firstNameTouched = true, lastNameTouched = true, ageTouched = true,
@@ -67,7 +65,6 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    // ولیدیشن: فقط فیلدهای touched (یا فیلد changed) یا حالت all=true
     private fun RegisterUiState.validated(
         changed: Field? = null,
         all: Boolean = false

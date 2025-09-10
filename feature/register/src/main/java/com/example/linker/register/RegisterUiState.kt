@@ -23,7 +23,7 @@ data class RegisterUiState(
     val passwordTouched: Boolean = false,
 
     val loading: Boolean = false,
-    val error: String? = null, // خطای کلی
+    val error: String? = null,
 ) {
     val isValid: Boolean =
         firstNameError == null && lastNameError == null &&

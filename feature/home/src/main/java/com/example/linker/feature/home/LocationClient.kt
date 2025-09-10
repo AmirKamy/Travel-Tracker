@@ -37,8 +37,8 @@ class FusedLocationClient @Inject constructor(
 
         val request = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
-            2_000L                 // هر ۲ ثانیه
-        ).setMinUpdateIntervalMillis(1_000L) // اختیاری
+            2_000L
+        ).setMinUpdateIntervalMillis(1_000L)
             .build()
 
         val callback = object : LocationCallback() {
